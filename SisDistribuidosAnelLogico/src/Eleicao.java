@@ -6,9 +6,9 @@ public class Eleicao {
     public Processo realizarEleicao(int idProcessoIniciador) {
         LinkedList<Integer> idProcessosConsultados = new LinkedList<>();
 
-        for (Processo p : ControleProcesso.getProcessosAtivos()) {
+        ControleProcesso.getProcessosAtivos().forEach((p) -> {
             consultarProcesso(p.getIdProcesso(), idProcessosConsultados);
-        }
+        });
 
         int idNovoCoordenador = idProcessoIniciador;
         for (Integer id : idProcessosConsultados) {

@@ -9,75 +9,75 @@ import java.net.Socket;
 public class Conexao {
 
     private boolean conectado = true;
-    public static final String PERMITIR_ACESSO = "Permitir";
-    public static final String NEGAR_ACESSO = "Negar";
+    public static final String permiteAcesso = "PERMITIR";
+    public static final String negaAcesso = "NAO_PERMITIR";
     private static final int porta = 8000;
-    private Socket socket;
-    private ServerSocket listen;
+    private Socket sock;
+    private ServerSocket listenSocket;
+
+    public void encerraAConexao() {
+        conectado = false;
+        try {
+            sock.close();
+        } catch (IOException | NullPointerException e) {
+            System.out.println("Erro encerrando a conexao: ");
+        }
+        try {
+            listenSocket.close();
+        } catch (IOException | NullPointerException e) {
+            System.out.println("Erro encerrando a conexao: ");
+        }
+    }
+
+    public String fazerRequisicao(String mensagem) {
+        String rBuf = "Erro!";
+        try {
+            Socket sock = new Socket("localhost", porta);
+
+            DataOutputStream dos = new DataOutputStream(sock.getOutputStream());
+            dos.write(mensagem.getBytes("UTF-8"));
+
+            InputStreamReader isr = new InputStreamReader(sock.getInputStream());
+            BufferedReader br = new BufferedReader(isr);
+
+            rBuf = br.readLine();
+
+            sock.close();
+        } catch (IOException e) {
+            System.out.println("A requisicao nao finalizou corretamente.");
+        }
+        return rBuf;
+    }
 
     public void conectar(Processo coordenador) {
-        System.out.println("Coordenador " + coordenador + " está pronto para receber as requisições.");
+        System.out.println("Coordenador " + coordenador + " pronto para receber requisicoes.");
         new Thread(() -> {
             try {
-                listen = new ServerSocket(porta);
+                listenSocket = new ServerSocket(porta);
 
                 while (conectado) {
-                    socket = listen.accept();
+                    sock = listenSocket.accept();
 
-                    InputStreamReader isr = new InputStreamReader(socket.getInputStream());
+                    InputStreamReader isr = new InputStreamReader(sock.getInputStream());
                     BufferedReader br = new BufferedReader(isr);
 
                     String rBuf = br.readLine();
                     System.out.println(rBuf);
 
-                    DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-                    String wBuf = "Erro!\n";
+                    DataOutputStream dos = new DataOutputStream(sock.getOutputStream());
+                    String sBuf = "Error!\n";
+
                     if (coordenador.isRecursoEmUso()) {
-                        wBuf = NEGAR_ACESSO + "\n";
+                        sBuf = negaAcesso + "\n";
                     } else {
-                        wBuf = PERMITIR_ACESSO + "\n";
+                        sBuf = permiteAcesso + "\n";
                     }
-                    dos.write(wBuf.getBytes("UTF-8"));
+                    dos.write(sBuf.getBytes("UTF-8"));
                 }
-                System.out.println("Conexão finalizada.");
+                System.out.println("Conexao encerrada.");
             } catch (IOException e) {
-                System.out.println("Conexão finalizada.");
+                System.out.println("Conexao encerrada.");
             }
         }).start();
-    }
-
-    public String realizarRequisicao(String mensagem) {
-        String wBuf = "Erro!\n";
-        try {
-            Socket socket = new Socket("localhost", porta);
-
-            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-            dos.write(mensagem.getBytes("UTF-8"));
-
-            InputStreamReader isr = new InputStreamReader(socket.getInputStream());
-            BufferedReader br = new BufferedReader(isr);
-
-            wBuf = br.readLine();
-
-            socket.close();
-        } catch (Exception e) {
-            System.out.println("A requisição não foi finalizada corretamente.");
-        }
-        return wBuf;
-    }
-
-    public void encerraConexao() {
-        conectado = false;
-        try {
-            socket.close();
-        } catch (IOException | NullPointerException e) {
-            System.out.println("Erro encerrando conexão.");
-        }
-
-        try {
-            listen.close();
-        } catch (IOException | NullPointerException e) {
-            System.out.println("Erro encerrando conexão.");
-        }
     }
 }

@@ -1,109 +1,69 @@
-//GRUPO 14
 
 import java.util.LinkedList;
 import java.util.Random;
 
 public class Processo {
 
-    private int idProcesso;
-    private boolean coordenadorAtual = false;
     private Thread utilizaRecurso = new Thread();
+    private int idProcesso;
     private Conexao conexao = new Conexao();
+    private boolean coordenadorAtual = false;
 
     private LinkedList<Processo> listaDeEspera;
     private boolean recursoEmUso;
 
-    private static final int usoMinimoProcesso = 10000;
-    private static final int usoMaximoProcesso = 20000;
+    private static final int USO_PROCESSO_MIN = 10000;
+    private static final int USO_PROCESSO_MAX = 20000;
 
     public Processo(int idProcesso) {
-        setIdProcesso(idProcesso);
+        this.idProcesso = idProcesso;
+        setCoordenadorAtual(false);
     }
 
-    public Processo(int idProcesso, boolean ehCoordenador) {
-        setIdProcesso(idProcesso);
-        setCoordenadorAtual(ehCoordenador);
+    public int getIdProcesso() {
+        return idProcesso;
     }
 
-    public boolean isCoordenadorAtual() {
+    public boolean isCoordenador() {
         return coordenadorAtual;
     }
 
-    public boolean novaRequisicao() {
-        boolean resultadoDeRequisicao = false;
-        for (Processo processo : AnelLogico.processosAtivos) {
-            if (processo.isCoordenadorAtual()) {
-                resultadoDeRequisicao = processo.recebeRequisicao(this.idProcesso);
+    public void setCoordenadorAtual(boolean ehCoordenador) {
+        this.coordenadorAtual = ehCoordenador;
+        if (this.coordenadorAtual) {
+            listaDeEspera = new LinkedList<>();
+            conexao.conectar(this);
+
+            if (ControleProcesso.isSendoConsumido()) {
+                ControleProcesso.getConsumidor().pararRecurso();
             }
-        }
-        if (!resultadoDeRequisicao) {
-            this.novaEleicao();
-        }
-        System.out.println("Requisição finalizada");
-        return resultadoDeRequisicao;
-    }
 
-    private boolean recebeRequisicao(int pidOrigemRequisicao) {
-        System.out.println("Requisição do processo " + pidOrigemRequisicao);
-        return true;
-    }
-
-    private void novaEleicao() {
-        System.out.println("-------------------- Eleição iniciada --------------------");
-
-        LinkedList<Integer> idProcessosVerificados = new LinkedList<>();
-
-        AnelLogico.processosAtivos.forEach((p) -> {
-            p.consultarProcesso(idProcessosVerificados);
-        });
-
-        int idNovoCoordenador = this.getIdProcesso();
-
-        for (Integer id : idProcessosVerificados) {
-            if (id > idNovoCoordenador) {
-                idNovoCoordenador = id;
-            }
-        }
-
-        boolean resultadoAtualizacao = false;
-        resultadoAtualizacao = atualizarCoordenador(idNovoCoordenador);
-
-        if (resultadoAtualizacao) {
-            System.out.println("Eleição FINALIZADA - Novo coordenador: " + idNovoCoordenador);
-        } else {
-            System.out.println("Eleição FINALIZADA - Sem novo coordenador");
+            recursoEmUso = false;
         }
     }
 
-    private void consultarProcesso(LinkedList<Integer> processosConsultados) {
-        processosConsultados.add(this.getIdProcesso());
-    }
-
-    private boolean atualizarCoordenador(int idNovoCoordenador) {
-        AnelLogico.processosAtivos.forEach((processo) -> {
-            processo.setCoordenadorAtual(processo.getIdProcesso() == idNovoCoordenador);
-        });
-        return true;
-    }
-
-    private void interrompeAcessoRecurso() {
+    private void pararRecurso() {
         if (utilizaRecurso.isAlive()) {
             utilizaRecurso.interrupt();
         }
     }
 
     public boolean isRecursoEmUso() {
-        return encontrarCoordenador().recursoEmUso;
+        return encontraOCoordenador().recursoEmUso;
     }
 
     public void setRecursoEmUso(boolean estaEmUso, Processo consumidor) {
-        Processo coordenador = encontrarCoordenador();
+        Processo coordenador = encontraOCoordenador();
 
         coordenador.recursoEmUso = estaEmUso;
         ControleProcesso.setConsumidor(estaEmUso ? consumidor : null);
     }
 
-    public boolean isListaDeEsperaVazia() {
+    private LinkedList<Processo> getListaDeEspera() {
+        return encontraOCoordenador().listaDeEspera;
+    }
+
+    public boolean listaDeEsperaEstaVazia() {
         return getListaDeEspera().isEmpty();
     }
 
@@ -113,58 +73,54 @@ public class Processo {
         }
     }
 
-    private Processo encontrarCoordenador() {
+    private Processo encontraOCoordenador() {
         Processo coordenador = ControleProcesso.getCoordenador();
 
         if (coordenador == null) {
             Eleicao eleicao = new Eleicao();
             coordenador = eleicao.realizarEleicao(this.getIdProcesso());
         }
-
         return coordenador;
     }
 
-    public void acessarRecursoCompartilhado() {
-        if (ControleProcesso.isUsandoRecurso(this) || this.isCoordenadorAtual()) {
+    public void acessaORecurso() {
+        if (ControleProcesso.isUsandoRecurso(this) || this.isCoordenador()) {
             return;
         }
 
-        String result = conexao.realizarRequisicao("Processo " + this + " quer consumir o recurso.\n");
+        String resultado = conexao.fazerRequisicao("Processo " + this + " quer consumir o recurso.\n");
 
-        System.out.println("Resultado da requisição do processo " + this + ": " + result);
+        System.out.println("Resultado da requisicao do processo " + this + ": " + resultado);
 
-        if (result.equals(Conexao.PERMITIR_ACESSO)) {
+        if (resultado.equals(Conexao.permiteAcesso)) {
             utilizarRecurso(this);
-        } else if (result.equals(Conexao.NEGAR_ACESSO)) {
-            adicionaNaListaDeEspera(this);
+        } else if (resultado.equals(Conexao.negaAcesso)) {
+            adicionarNaListaDeEspera(this);
         }
     }
 
-    private void adicionaNaListaDeEspera(Processo processoEmEspera) {
+    private void adicionarNaListaDeEspera(Processo processoEmEspera) {
         getListaDeEspera().add(processoEmEspera);
 
-        System.out.println("Processo " + this + " foi adicionado na lista de espera.");
-        System.out.println("Lista de espera: " + getListaDeEspera());
+        System.out.println("O processo " + this + " foi adicionado na lista de espera!");
+        System.out.println("Os processos que estão na lista de espera são: " + getListaDeEspera());
     }
 
     private void utilizarRecurso(Processo processo) {
         Random random = new Random();
-        int usoTempo = usoMinimoProcesso + random.nextInt(usoMaximoProcesso - usoMinimoProcesso);
+        int randomUsageTime = USO_PROCESSO_MIN + random.nextInt(USO_PROCESSO_MAX - USO_PROCESSO_MIN);
 
-        utilizaRecurso = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                System.out.println("Processo " + processo + " está consumindo o recurso.");
-                setRecursoEmUso(true, processo);
-
-                try {
-                    Thread.sleep(usoTempo);
-                } catch (InterruptedException e) {
-                }
-
-                System.out.println("Processo " + processo + " parou de consumir o recurso.");
-                processo.liberarRecurso();
+        utilizaRecurso = new Thread(() -> {
+            System.out.println("O processo " + processo + " está consumindo o recurso.");
+            setRecursoEmUso(true, processo);
+            
+            try {
+                Thread.sleep(randomUsageTime);
+            } catch (InterruptedException e) {
             }
+            
+            System.out.println("O processo " + processo + " parou de consumir o recurso.");
+            processo.liberarRecurso();
         });
         utilizaRecurso.start();
     }
@@ -172,26 +128,26 @@ public class Processo {
     private void liberarRecurso() {
         setRecursoEmUso(false, this);
 
-        if (!isListaDeEsperaVazia()) {
+        if (!listaDeEsperaEstaVazia()) {
             Processo processoEmEspera = getListaDeEspera().removeFirst();
-            processoEmEspera.acessarRecursoCompartilhado();
+            processoEmEspera.acessaORecurso();
             System.out.println("Processo " + processoEmEspera + " foi removido da lista de espera.");
             System.out.println("Lista de espera: " + getListaDeEspera());
         }
     }
 
-    public void destruir() {
-        if (isCoordenadorAtual()) {
-            conexao.encerraConexao();
+    public void removeProcesso() {
+        if (isCoordenador()) {
+            conexao.encerraAConexao();
         } else {
             removerDaListaDeEspera(this);
             if (ControleProcesso.isUsandoRecurso(this)) {
-                interrompeAcessoRecurso();
+                pararRecurso();
                 liberarRecurso();
             }
         }
 
-        ControleProcesso.removeProcesso(this);
+        ControleProcesso.removerProcesso(this);
     }
 
     @Override
@@ -208,52 +164,4 @@ public class Processo {
     public String toString() {
         return String.valueOf(this.getIdProcesso());
     }
-
-    //Getters e Setters:
-    public int getIdProcesso() {
-        return idProcesso;
-    }
-
-    public void setIdProcesso(int idProcesso) {
-        this.idProcesso = idProcesso;
-    }
-
-    public void setCoordenadorAtual(boolean coordenadorAtual) {
-        this.coordenadorAtual = coordenadorAtual;
-        if (this.coordenadorAtual) {
-            listaDeEspera = new LinkedList<>();
-            conexao.conectar(this);
-
-            if (ControleProcesso.isSendoConsumido()) {
-                ControleProcesso.getConsumidor().interrompeAcessoRecurso();
-            }
-
-            recursoEmUso = false;
-        }
-    }
-
-    public Thread getUtilizaRecurso() {
-        return utilizaRecurso;
-    }
-
-    public void setUtilizaRecurso(Thread utilizaRecurso) {
-        this.utilizaRecurso = utilizaRecurso;
-    }
-
-    public Conexao getConexao() {
-        return conexao;
-    }
-
-    public void setConexao(Conexao conexao) {
-        this.conexao = conexao;
-    }
-
-    public LinkedList<Processo> getListaDeEspera() {
-        return encontrarCoordenador().listaDeEspera;
-    }
-
-    public void setListaDeEspera(LinkedList<Processo> listaDeEspera) {
-        this.listaDeEspera = listaDeEspera;
-    }
-
 }
