@@ -4,13 +4,26 @@ import java.util.ArrayList;
 public class ControleProcesso {
 
     private static ArrayList<Processo> processosAtivos = new ArrayList<Processo>();
-    private static Recurso recurso = new Recurso();
     private static Processo consumidor = null;
+    private static Recurso recurso = new Recurso();
 
     private ControleProcesso() {
 
     }
 
+    public static void removeOProcesso(Processo processo) {
+        processosAtivos.remove(processo);
+    }
+
+    public static boolean estaUsandoRecurso(Processo processo) {
+        return processo.equals(consumidor);
+    }
+
+    public static boolean estaSendoConsumido() {
+        return consumidor != null;
+    }
+
+    //Getters e Setters
     public static ArrayList<Processo> getProcessosAtivos() {
         return processosAtivos;
     }
@@ -34,17 +47,5 @@ public class ControleProcesso {
             }
         }
         return null;
-    }
-
-    public static void removerProcesso(Processo processo) {
-        processosAtivos.remove(processo);
-    }
-
-    public static boolean isUsandoRecurso(Processo processo) {
-        return processo.equals(consumidor);
-    }
-
-    public static boolean isSendoConsumido() {
-        return consumidor != null;
     }
 }

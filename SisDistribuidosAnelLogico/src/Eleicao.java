@@ -3,11 +3,11 @@ import java.util.LinkedList;
 
 public class Eleicao {
 
-    public Processo realizarEleicao(int idProcessoIniciador) {
+    public Processo realizaEleicao(int idProcessoIniciador) {
         LinkedList<Integer> idProcessosConsultados = new LinkedList<>();
 
         ControleProcesso.getProcessosAtivos().forEach((p) -> {
-            consultarProcesso(p.getIdProcesso(), idProcessosConsultados);
+            consultaProcesso(p.getIdProcesso(), idProcessosConsultados);
         });
 
         int idNovoCoordenador = idProcessoIniciador;
@@ -17,7 +17,7 @@ public class Eleicao {
             }
         }
 
-        Processo coordenador = atualizarCoordenador(idNovoCoordenador);
+        Processo coordenador = atualizaCoordenador(idNovoCoordenador);
 
         if (coordenador == null) {
             for (Processo p : ControleProcesso.getProcessosAtivos()) {
@@ -30,11 +30,11 @@ public class Eleicao {
         return coordenador;
     }
 
-    private void consultarProcesso(int idProcesso, LinkedList<Integer> processosConsultados) {
+    private void consultaProcesso(int idProcesso, LinkedList<Integer> processosConsultados) {
         processosConsultados.add(idProcesso);
     }
 
-    private Processo atualizarCoordenador(int idNovoCoordenador) {
+    private Processo atualizaCoordenador(int idNovoCoordenador) {
         Processo coordenador = null;
         for (Processo p : ControleProcesso.getProcessosAtivos()) {
             if (p.getIdProcesso() == idNovoCoordenador) {
